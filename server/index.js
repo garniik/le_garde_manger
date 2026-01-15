@@ -28,7 +28,7 @@ app.get('/api/_tables', async (req, res) => {
 app.get('/api/foods', async (req, res) => {
   const q = (req.query.q || '').toString().trim()
   const type = (req.query.type || '').toString().trim()
-  const allowedTypes = new Set(['aliment', 'plat', 'dessert', 'boisson', 'autre'])
+  const allowedTypes = new Set(['aliment', 'plat', 'dessert', 'boisson', 'hippo'])
   try {
     let sql = 'SELECT id, name, description, calories, type FROM foods'
     const where = []

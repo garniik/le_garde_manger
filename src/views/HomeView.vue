@@ -51,7 +51,7 @@ onMounted(() => {
 
     <div class="filters">
       <button
-        v-for="t in ['', 'aliment', 'plat', 'dessert', 'boisson', 'autre']"
+        v-for="t in ['', 'aliment', 'plat', 'dessert', 'boisson', 'hippo']"
         :key="t || 'all'"
         class="chip"
         :class="{ active: type === t }"

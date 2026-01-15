@@ -7,15 +7,28 @@ const router = useRouter();
 const email = ref("");
 const password = ref("");
 const isLoading = ref(false);
+const error = ref("");
 
-const handleLogin = () => {
+const handleLogin = async () => {
+    error.value = "";
     isLoading.value = true;
-    // Simulation d'appel API
-    setTimeout(() => {
+    try {
+        const res = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: email.value, password: password.value })
+        });
+        if (!res.ok) {
+            const j = await res.json().catch(() => ({}));
+            throw new Error(j.error || `HTTP ${res.status}`);
+        }
+        authStore.login(email.value, password.value);
+        router.push('/');
+    } catch (e) {
+        error.value = e.message || 'Connexion échouée';
+    } finally {
         isLoading.value = false;
-        authStore.login();
-        router.push("/");
-    }, 1500);
+    }
 };
 </script>
 
@@ -68,6 +81,7 @@ const handleLogin = () => {
                         <div v-else class="spinner"></div>
                     </button>
                 </form>
+                <p v-if="error" style="color:#b00020; margin-top:8px;">{{ error }}</p>
 
                 <div class="card-footer">
                     <p>

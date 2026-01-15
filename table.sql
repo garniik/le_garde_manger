@@ -1,5 +1,5 @@
-CREATE USER 'admin'@'localhost' IDENTIFIED BY '1234';
-GRANT ALL PRIVILEGES ON garde_manger.* TO 'admin'@'localhost';
+CREATE USER 'admin1'@'localhost' IDENTIFIED BY '1234';
+GRANT ALL PRIVILEGES ON garde_manger.* TO 'admin1'@'localhost';
 FLUSH PRIVILEGES;
 
 CREATE TABLE users (
@@ -18,3 +18,5 @@ CREATE TABLE foods (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
+INSERT INTO users (email, password)
+VALUES ('admin@example.com', SHA2('1234', 256));

@@ -1,11 +1,19 @@
 <script setup>
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, watch, computed } from 'vue'
+import { authStore } from '@/stores/auth'
 
 const q = ref('')
 const type = ref('') // '', 'aliment', 'plat', 'dessert', 'boisson', 'hippo'
 const foods = ref([])
 const loading = ref(false)
 const error = ref('')
+
+const authHeader = computed(() => {
+  if (authStore.isAuthenticated && authStore.email && authStore.password) {
+    return 'Basic ' + btoa(`${authStore.email}:${authStore.password}`)
+  }
+  return ''
+})
 
 async function fetchFoods(term = '', t = type.value) {
   loading.value = true
@@ -15,7 +23,10 @@ async function fetchFoods(term = '', t = type.value) {
     if (term) params.set('q', term)
     if (t) params.set('type', t)
     const qs = params.toString()
-    const res = await fetch(`/api/foods${qs ? `?${qs}` : ''}`)
+    if (!authHeader.value) throw new Error('Veuillez vous connecter')
+    const res = await fetch(`/api/foods${qs ? `?${qs}` : ''}`, {
+      headers: { Authorization: authHeader.value }
+    })
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
     foods.value = await res.json()
   } catch (e) {
@@ -36,7 +47,9 @@ watch(type, (val) => {
 })
 
 onMounted(() => {
-  fetchFoods()
+  if (authStore.isAuthenticated) {
+    fetchFoods()
+  }
 })
 </script>
 

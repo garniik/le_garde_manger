@@ -5,7 +5,7 @@ const {
   DB_HOST = 'localhost',
   DB_PORT = '3306',
   DB_NAME = 'garde_manger',
-  DB_USER = 'admin',
+  DB_USER = 'admin1',
   DB_PASS = '1234',
   DB_SSL = 'false',
   DB_SSL_CA,

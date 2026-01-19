@@ -199,7 +199,7 @@ async function deleteFood(id) {
         </select>
         <input v-model="newCalories" type="number" min="0" step="1" placeholder="Calories (optionnel)" />
         <input v-model="newDesc" placeholder="Description (optionnel)" />
-        <button @click="addFood" :disabled="addLoading">{{ addLoading ? 'Ajout…' : 'Ajouter' }}</button>
+        <button @click="addFood">{{ addLoading ? 'Ajout…' : 'Ajouter' }}</button>
       </div>
       <div v-if="addError" class="state error" style="margin-top: 0.25rem;">{{ addError }}</div>
     </div>

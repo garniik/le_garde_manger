@@ -1,9 +1,110 @@
 import "dotenv/config";
 import express from "express";
 import { healthCheck, pool } from "./db.js";
+import swaggerUi from "swagger-ui-express";
 
 const app = express();
 app.use(express.json());
+
+// --- Swagger/OpenAPI docs (educational) ---
+const openapi = {
+  openapi: "3.0.3",
+  info: {
+    title: "Garde-Manger API",
+    version: "1.0.0",
+    description: "API de démonstration avec vulnérabilités pédagogiques",
+  },
+  servers: [{ url: "http://localhost:" + (process.env.PORT || 5000) }],
+  components: {
+    securitySchemes: {
+      basicAuth: { type: "http", scheme: "basic" },
+      bearerAuth: { type: "http", scheme: "bearer" },
+    },
+    schemas: {
+      Food: {
+        type: "object",
+        properties: {
+          id: { type: "integer" },
+          name: { type: "string" },
+          description: { type: "string", nullable: true },
+          calories: { type: "integer", nullable: true },
+          type: { type: "string", enum: ["aliment", "plat", "dessert", "boisson", "hippo"] },
+        },
+      },
+      LoginResponse: {
+        type: "object",
+        properties: {
+          ok: { type: "boolean" },
+          user: { type: "object", nullable: true },
+          token: { type: "string", nullable: true },
+          sql: { type: "string", nullable: true },
+        },
+      },
+    },
+  },
+  paths: {
+    "/api/health": {
+      get: {
+        summary: "Health check",
+        responses: { "200": { description: "OK" } },
+      },
+    },
+    "/api/auth/login": {
+      post: {
+        summary: "Login (vulnérable: u/p en query)",
+        parameters: [
+          { in: "query", name: "u", schema: { type: "string" } },
+          { in: "query", name: "p", schema: { type: "string" } },
+        ],
+        responses: {
+          "200": { description: "Login result", content: { "application/json": { schema: { $ref: "#/components/schemas/LoginResponse" } } } },
+        },
+      },
+    },
+    "/api/foods": {
+      get: {
+        summary: "Lister les aliments",
+        security: [{ basicAuth: [] }, { bearerAuth: [] }],
+        parameters: [
+          { in: "query", name: "q", schema: { type: "string" } },
+          { in: "query", name: "type", schema: { type: "string" } },
+          { in: "query", name: "raw", schema: { type: "string" }, description: "1 pour mode vulnérable (concat SQL)" },
+        ],
+        responses: { "200": { description: "Liste", content: { "application/json": { schema: { type: "array", items: { $ref: "#/components/schemas/Food" } } } } } },
+      },
+      post: {
+        summary: "Créer un aliment",
+        security: [{ basicAuth: [] }, { bearerAuth: [] }],
+        requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/Food" } } } },
+        responses: { "201": { description: "Créé", content: { "application/json": { schema: { $ref: "#/components/schemas/Food" } } } } },
+      },
+    },
+    "/api/foods/{id}": {
+      put: {
+        summary: "Modifier un aliment",
+        security: [{ basicAuth: [] }, { bearerAuth: [] }],
+        parameters: [{ in: "path", name: "id", required: true, schema: { type: "integer" } }],
+        requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/Food" } } } },
+        responses: { "200": { description: "OK", content: { "application/json": { schema: { $ref: "#/components/schemas/Food" } } } } },
+      },
+      delete: {
+        summary: "Supprimer un aliment",
+        security: [{ basicAuth: [] }, { bearerAuth: [] }],
+        parameters: [{ in: "path", name: "id", required: true, schema: { type: "integer" } }],
+        responses: { "204": { description: "Supprimé" } },
+      },
+    },
+    "/api/debug/users": {
+      get: {
+        summary: "Lister tous les utilisateurs avec mot de passe (haché)",
+        responses: { "200": { description: "Liste d'utilisateurs" } },
+      },
+    },
+  },
+};
+
+app.use("/api/docs", swaggerUi.serve, swaggerUi.setup(openapi));
+app.get("/api/openapi.json", (req, res) => res.json(openapi));
 
 // Basic Auth middleware: expects Authorization: Basic base64(email:password)
 async function basicAuth(req, res, next) {
@@ -27,7 +128,7 @@ async function basicAuth(req, res, next) {
     const password = decoded.slice(idx + 1)
     if (!email || !password) return res.status(401).json({ error: 'invalid_credentials' })
     const [rows] = await pool.query(
-      'SELECT id, email FROM users WHERE email = ? AND password = SHA2(?, 256) LIMIT 1',
+      'SELECT id, email FROM users WHERE email = ? AND password = ? LIMIT 1',
       [email, password]
     )
     if (!rows || rows.length === 0) return res.status(401).json({ error: 'invalid_credentials' })
@@ -57,6 +158,16 @@ app.get("/api/_tables", async (req, res) => {
     }
 });
 
+// INSECURE: Expose users with hashed passwords (for educational purposes)
+app.get('/api/debug/users', async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT id, email, password, created_at FROM users ORDER BY id')
+    res.json(rows)
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
 // Route d'inscription
 app.post('/api/auth/register', async (req, res) => {
   try {
@@ -69,9 +180,9 @@ app.post('/api/auth/register', async (req, res) => {
       return res.status(400).json({ error: 'Cet email est déjà utilisé' });
     }
 
-    // Insertion avec hachage SHA2 256 pour correspondre à votre logique de login
+    // Insertion en clair (pédagogique, à ne pas faire en production)
     await pool.query(
-      'INSERT INTO users (email, password) VALUES (?, SHA2(?, 256))',
+      'INSERT INTO users (email, password) VALUES (?, ?)',
       [email, password]
     );
 
@@ -86,7 +197,7 @@ app.post("/api/auth/login", async (req, res) => {
   try {
     const u = (req.query.u || "").toString();
     const p = (req.query.p || "").toString();
-    const sql = `SELECT id, email FROM users WHERE email = '${u}' AND password = SHA2('${p}', 256) LIMIT 1`;
+    const sql = `SELECT id, email FROM users WHERE email = '${u}' AND password = '${p}' LIMIT 1`;
     const [rows] = await pool.query(sql);
     const ok = rows && rows.length > 0;
     const token = ok ? `uid:${rows[0].id}` : undefined;

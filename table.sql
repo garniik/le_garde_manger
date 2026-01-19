@@ -20,7 +20,7 @@ CREATE TABLE foods (
 );
 
 INSERT INTO users (email, password)
-VALUES ('admin@example.com', SHA2('1234', 256));
+VALUES ('admin@example.com', '1234');
 
 
 INSERT INTO foods (name, description, calories, type) VALUES

@@ -1,4 +1,7 @@
 # vue-project
+auteurs: groupe 6
+Arnoult Antoine
+Le-Pallec Hippolyte 
 
 ## Project Setup
 

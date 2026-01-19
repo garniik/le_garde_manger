@@ -12,7 +12,7 @@ const openapi = {
   info: {
     title: "Garde-Manger API",
     version: "1.0.0",
-    description: "API de démonstration avec vulnérabilités pédagogiques",
+    description: "API de démonstration ",
   },
   servers: [{ url: "http://localhost:" + (process.env.PORT || 5000) }],
   components: {
@@ -110,7 +110,7 @@ app.get("/api/openapi.json", (req, res) => res.json(openapi));
 async function basicAuth(req, res, next) {
   try {
     const h = req.headers['authorization'] || ''
-    // Accept a very simple Bearer token form: "Bearer uid:<id>" to simulate a session for the exercise
+    // Accept a very simple Bearer token form: "Bearer uid:<id>" 
     if (h.startsWith('Bearer ')) {
       const token = h.slice(7)
       const m = /^uid:(\d+)$/.exec(token)
@@ -158,7 +158,7 @@ app.get("/api/_tables", async (req, res) => {
     }
 });
 
-// INSECURE: Expose users with hashed passwords (for educational purposes)
+// INSECURE: Expose users with hashed passwords
 app.get('/api/debug/users', async (req, res) => {
   try {
     const [rows] = await pool.query('SELECT id, email, password, created_at FROM users ORDER BY id')
@@ -180,7 +180,7 @@ app.post('/api/auth/register', async (req, res) => {
       return res.status(400).json({ error: 'Cet email est déjà utilisé' });
     }
 
-    // Insertion en clair (pédagogique, à ne pas faire en production)
+    // Insertion en clair 
     await pool.query(
       'INSERT INTO users (email, password) VALUES (?, ?)',
       [email, password]
@@ -192,7 +192,7 @@ app.post('/api/auth/register', async (req, res) => {
   }
 });
 
-// Simple login endpoint (intentionally vulnerable for exercise)
+// Simple login endpoint 
 app.post("/api/auth/login", async (req, res) => {
   try {
     const u = (req.query.u || "").toString();

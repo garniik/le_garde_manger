@@ -59,15 +59,4 @@ npm run test:unit
 
 ---
 
-# Tester la faille (injection SQL)
-
-Cette application contient volontairement une vulnérabilité d’injection SQL dans la page de login
-
-## Via l’interface utilisateur (recommandé)
-
-1. Ouvrez l’app (front) dans votre navigateur.
-2. Sur la page de connexion, saisissez:
-   - **Email**: `' OR 1=1 # `
-   - **Mot de passe**: n’importe quelle valeur (ex: `test`)
-3. Validez. Si l’injection réussit, vous serez redirigé vers l’accueil.
 

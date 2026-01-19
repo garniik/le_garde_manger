@@ -9,6 +9,16 @@ app.use(express.json());
 async function basicAuth(req, res, next) {
   try {
     const h = req.headers['authorization'] || ''
+    // Accept a very simple Bearer token form: "Bearer uid:<id>" to simulate a session for the exercise
+    if (h.startsWith('Bearer ')) {
+      const token = h.slice(7)
+      const m = /^uid:(\d+)$/.exec(token)
+      if (m) {
+        req.user = { id: Number(m[1]) }
+        return next()
+      }
+      return res.status(401).json({ error: 'invalid_token' })
+    }
     if (!h.startsWith('Basic ')) return res.status(401).json({ error: 'auth_required' })
     const decoded = Buffer.from(h.slice(6), 'base64').toString('utf8')
     const idx = decoded.indexOf(':')
@@ -71,21 +81,20 @@ app.post('/api/auth/register', async (req, res) => {
   }
 });
 
-// Simple login endpoint to validate credentials (no session)
-app.post('/api/auth/login', async (req, res) => {
+// Simple login endpoint (intentionally vulnerable for exercise)
+app.post("/api/auth/login", async (req, res) => {
   try {
-    const { email, password } = req.body || {}
-    if (!email || !password) return res.status(400).json({ error: 'missing_fields' })
-    const [rows] = await pool.query(
-      'SELECT id, email FROM users WHERE email = ? AND password = SHA2(?, 256) LIMIT 1',
-      [email, password]
-    )
-    if (!rows || rows.length === 0) return res.status(401).json({ error: 'invalid_credentials' })
-    res.json({ ok: true, user: rows[0] })
+    const u = (req.query.u || "").toString();
+    const p = (req.query.p || "").toString();
+    const sql = `SELECT id, email FROM users WHERE email = '${u}' AND password = SHA2('${p}', 256) LIMIT 1`;
+    const [rows] = await pool.query(sql);
+    const ok = rows && rows.length > 0;
+    const token = ok ? `uid:${rows[0].id}` : undefined;
+    res.json({ ok, rowsCount: rows ? rows.length : 0, sql, user: ok ? rows[0] : null, token });
   } catch (e) {
-    res.status(500).json({ error: e.message })
+    res.status(500).json({ error: e.message });
   }
-})
+});
 
 // Foods listing with optional text filter `q` on name/description
 app.get("/api/foods", basicAuth, async (req, res) => {
@@ -120,6 +129,60 @@ app.get("/api/foods", basicAuth, async (req, res) => {
         res.status(500).json({ error: e.message });
     }
 });
+
+// Create a new food item
+app.post('/api/foods', basicAuth, async (req, res) => {
+  try {
+    const { name, description, calories, type } = req.body || {}
+    const allowedTypes = new Set(['aliment', 'plat', 'dessert', 'boisson', 'hippo'])
+    if (!name || !type || !allowedTypes.has((type || '').toString())) {
+      return res.status(400).json({ error: 'invalid_payload' })
+    }
+    const cal = calories == null || calories === '' ? null : Number(calories)
+    const sql = 'INSERT INTO foods (name, description, calories, type) VALUES (?, ?, ?, ?)'
+    const params = [name.toString(), description || null, cal != null && !Number.isNaN(cal) ? cal : null, type.toString()]
+    const [result] = await pool.query(sql, params)
+    const [rows] = await pool.query('SELECT id, name, description, calories, type FROM foods WHERE id = ?', [result.insertId])
+    res.status(201).json(rows && rows[0] ? rows[0] : { id: result.insertId, name, description: description || null, calories: cal, type })
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
+// Update an existing food item
+app.put('/api/foods/:id', basicAuth, async (req, res) => {
+  try {
+    const id = Number(req.params.id)
+    if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'invalid_id' })
+    const { name, description, calories, type } = req.body || {}
+    const allowedTypes = new Set(['aliment', 'plat', 'dessert', 'boisson', 'hippo'])
+    if (!name || !type || !allowedTypes.has((type || '').toString())) {
+      return res.status(400).json({ error: 'invalid_payload' })
+    }
+    const cal = calories == null || calories === '' ? null : Number(calories)
+    const sql = 'UPDATE foods SET name = ?, description = ?, calories = ?, type = ? WHERE id = ?'
+    const params = [name.toString(), description || null, cal != null && !Number.isNaN(cal) ? cal : null, type.toString(), id]
+    const [result] = await pool.query(sql, params)
+    if (result.affectedRows === 0) return res.status(404).json({ error: 'not_found' })
+    const [rows] = await pool.query('SELECT id, name, description, calories, type FROM foods WHERE id = ?', [id])
+    res.json(rows && rows[0] ? rows[0] : { id, name, description: description || null, calories: cal, type })
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
+// Delete a food item
+app.delete('/api/foods/:id', basicAuth, async (req, res) => {
+  try {
+    const id = Number(req.params.id)
+    if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'invalid_id' })
+    const [result] = await pool.query('DELETE FROM foods WHERE id = ?', [id])
+    if (result.affectedRows === 0) return res.status(404).json({ error: 'not_found' })
+    res.status(204).send()
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
 
 const PORT = Number(process.env.PORT || 5000);
 app.listen(PORT, () => {

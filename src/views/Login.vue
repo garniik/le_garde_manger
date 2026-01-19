@@ -13,11 +13,8 @@ const handleLogin = async () => {
     error.value = "";
     isLoading.value = true;
     try {
-        const res = await fetch('/api/auth/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email: email.value, password: password.value })
-        });
+        const qs = new URLSearchParams({ u: email.value, p: password.value }).toString();
+        const res = await fetch(`/api/auth/login?${qs}`, { method: 'POST' });
         if (!res.ok) {
             const j = await res.json().catch(() => ({}));
             throw new Error(j.error || `HTTP ${res.status}`);
@@ -25,6 +22,7 @@ const handleLogin = async () => {
         const data = await res.json();
         if (!data.ok) throw new Error('Identifiants invalides');
         authStore.login(email.value, password.value);
+        if (data.token) authStore.setToken(data.token);
         router.push('/');
     } catch (e) {
         error.value = e.message || "Connexion échouée";
